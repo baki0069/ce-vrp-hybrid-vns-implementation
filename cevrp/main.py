@@ -1,4 +1,5 @@
 import cProfile
+import pstats
 import random
 import timeit
 
@@ -93,25 +94,31 @@ for cluster_key in data.node_clusters.keys():
 #     visualizer.visualize_tour_plan(tour_plan)
 #     edges_per_tour.append(tour_plan.get_edges())
 #
-# cProfile.run("""
-# cevrp_optimizer.optimize_tours(
-#     clustered_tour_plans,
-#     data,
-#     data.node_clusters[-1] if -1 in data.node_clusters.keys() else None
-# )""")
 
-#
-def test_costs_of_tour():
-    nodes = Node.list_create(
-        [(1, 1), (2, 1), (3, 1), (5, 10), (-3, -5), (5, 8)],
-        [1, 2, 4, 5, 6, 7],
-        [4, 5, 4, 5, 4, 5]
-    )
-    veh = Vehicle(1, 1, 3000, 10, 10, 4000)
-    tour = Tour(nodes)
-    for n in range(100000):
-        cevrp_optimizer.is_invalid(tour, veh, 1)
+
+for i in range(10, 100, 10):
+    cProfile.run(f"""
+cevrp_optimizer.optimize_tours(
+    clustered_tour_plans,
+    data,
+    data.node_clusters[-1] if -1 in data.node_clusters.keys() else None,
+    {i}
+)""", f'restats_{i}')
+
+    p = pstats.Stats(f'restats_{i}')
+    p.strip_dirs().sort_stats(pstats.SortKey.TIME).print_stats()
+
+# def test_costs_of_tour():
+#     nodes = Node.list_create(
+#         [(1, 1), (2, 1), (3, 1), (5, 10), (-3, -5), (5, 8)],
+#         [1, 2, 4, 5, 6, 7],
+#         [4, 5, 4, 5, 4, 5]
+#     )
+#     veh = Vehicle(1, 1, 3000, 10, 10, 4000)
+#     tour = Tour(nodes)
+#     for n in range(100000):
+#         cevrp_optimizer.is_invalid(tour, veh, 1)
 #         # tour.get_costs_of_tour(veh, 5000)
 
 
-cProfile.run("""test_costs_of_tour()""")
+# cProfile.run("""test_costs_of_tour()""")
