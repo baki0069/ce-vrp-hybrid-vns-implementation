@@ -64,43 +64,33 @@ class TourTests(unittest.TestCase):
         with self.subTest("KEY: LIST[INT], VALUE: LIST[NODE] - SAME CARDINALITY"):
             t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
             p2 = [self.n2[1], self.n2[2], self.n2[3]]
-            t1[[1, 3, 5]] = p2
+            # t1[[1, 3, 5]] = p2
+            t1.list_replace([1, 3, 5], p2)
             expectation = [dp, self.n2[1], self.n1[2], self.n2[2], self.n1[4], self.n2[3]]
             self.assertEqual(t1, expectation)
 
         with self.subTest("KEY: LIST[INT], VALUE: LIST[NODE] - |KEY| > |VALUE|"):
             t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
             p2 = [self.n2[1], self.n2[2], self.n2[3], self.n2[4]]
-            t1[[1, 3, 5]] = p2
+            # t1[[1, 3, 5]] = p2
+            t1.list_replace([1, 3, 5], p2)
             expectation = [dp, self.n2[1], self.n1[2], self.n2[2], self.n1[4], self.n2[3]]
             self.assertEqual(t1, expectation)
 
         with self.subTest("KEY: LIST[INT], VALUE: LIST[NODE] - |KEY| < |VALUE|"):
             t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
             p2 = [self.n2[1], self.n2[2]]
-            t1[[1, 3, 5]] = p2
+            # t1[[1, 3, 5]] = p2
+            t1.list_replace([1, 3, 5], p2)
             expectation = [dp, self.n2[1], self.n1[2], self.n2[2], self.n1[4], dp]
-            self.assertEqual(t1, expectation)
-
-        with self.subTest("KEY: TUPLE[INT], VALUE: SINGLETON_INT"):
-            t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
-            p = Node(69, 69, 69, 69, 69)
-            t1[1, 3, 5] = p
-            expectation = [dp, p, self.n1[2], p, self.n1[4], p]
             self.assertEqual(t1, expectation)
 
         with self.subTest("KEY: SLICE, VALUE: LIST[NODE] - |KEY| < |VALUE|"):
             t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
             p2 = [self.n2[1], self.n2[2]]
-            t1[-1:1:-1] = p2
+            # t1[-1:1:-1] = p2
+            t1.slice_replace(slice(-1, 1, -1), p2)
             expectation = t1[0:4] + [p2[1], p2[0]]
-            self.assertEqual(t1, expectation)
-
-        with self.subTest("KEY: SLICE, VALUE: SINGLETON_INT"):
-            t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
-            p = Node(69, 69, 69, 69, 69)
-            t1[1:4:2] = p
-            expectation = [dp, p, self.n1[2], p, self.n1[4], dp]
             self.assertEqual(t1, expectation)
 
         with self.subTest("KEY: NODE, VALUE: any"):
@@ -109,33 +99,6 @@ class TourTests(unittest.TestCase):
             t1[self.n1[2]] = p
             expectation = [dp, self.n1[1], p, self.n1[3], self.n1[4], dp]
             self.assertEqual(t1, expectation)
-
-        with self.subTest("KEY: LIST[NODE], VALUE: any"):
-            t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
-            p = Node(69, 69, 69, 69, 69)
-            t1[[self.n1[2], self.n1[3]]] = p
-            expectation = [dp, self.n1[1], p, p, self.n1[4], dp]
-            self.assertEqual(t1, expectation)
-
-        with self.subTest("KEY: TUPLE[NODE, NODE], VALUE: any"):
-            t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
-            p = Node(69, 69, 69, 69, 69)
-            t1[self.n1[2], self.n1[3]] = p
-            expectation = [dp, self.n1[1], p, p, self.n1[4], dp]
-            self.assertEqual(t1, expectation)
-
-        with self.subTest("KEY: TOUR, VALUE: any"):
-            t1 = Tour([dp, self.n1[1], self.n1[2], self.n1[3], self.n1[4], dp])
-            p = Node(69, 69, 69, 69, 69)
-            t1[Tour([self.n1[2], self.n1[3]])] = p
-            expectation = [dp, self.n1[1], p, p, self.n1[4], dp]
-            self.assertEqual(t1, expectation)
-
-        with self.subTest("Raise error if invalid operands"):
-            t1 = Tour([dp, dp, dp])
-            self.assertRaises(TypeError, t1.__setitem__, "abc", dp)
-            self.assertRaises(TypeError, t1.__setitem__, [1, 2, 3], "abc")
-            self.assertRaises(TypeError, t1.__setitem__, "abc", "abc")
 
     def test_tour_should_get_next_node(self):
         self.assertEqual(self.t1.get_next_node(self.t1[3]), self.t1[4])

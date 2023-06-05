@@ -1,6 +1,6 @@
 import unittest
-from cevrp.vnd.neighborhood_operators import NeighborhoodOperators, NeighborhoodOperatorsImpl, \
-    NeighborhoodData
+from cevrp.vnd.neighborhood_operators import NeighborhoodOperators, NeighborhoodOperatorsImpl
+from cevrp.vnd.neighborhood_data import NeighborhoodData
 from cevrp.node import Node
 from cevrp.savings_calculator import SavingsCalculator
 from cevrp.tour import Tour
@@ -58,7 +58,7 @@ class NeighborhoodOperatorsTests(unittest.TestCase):
         t = Tour([d, n[0], n[1], n[2], d])
         for i in range(1, 5):
             with self.subTest(length=i):
-                s1, s2 = NeighborhoodOperatorsImpl.get_random_subtours(t, i)
+                s1, s2 = NeighborhoodOperatorsImpl.get_random_tour_sections(t, i)
                 self.assertTrue(s in t.get_edges() for s in s1.get_edges())
                 self.assertTrue(s in t.get_edges() for s in s2.get_edges())
                 self.assertNotEqual(s1, s2)
@@ -69,5 +69,5 @@ class NeighborhoodOperatorsTests(unittest.TestCase):
         t = Tour([d, n[0], n[1], n[2], d])
         for i in range(1, 5):
             with self.subTest(length=i):
-                s1 = NeighborhoodOperatorsImpl.get_random_subtour(t, i)
+                s1 = NeighborhoodOperatorsImpl.get_random_tour_section(t, i)
                 self.assertTrue(s in t.get_edges() for s in s1.get_edges())

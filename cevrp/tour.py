@@ -26,6 +26,8 @@ class Tour(Iterable):
         else:
             ValueError("Illegal node type.")
 
+        self.total_demand = self.get_total_demand()
+
         Tour.id += 1
 
     def __iter__(self):
@@ -77,48 +79,30 @@ class Tour(Iterable):
         else:
             raise TypeError(f"Unsupported operand type: [{type(item_indicator).__name__}]")
 
+    def list_replace(self, self_node_indices: list[int] | tuple[int], node_replacements: list[Node]):
+        self.__setitem__handle_node_list_value(self_node_indices, node_replacements)
+
+    def list_replace_with_tour(self, self_node_indices: list[int] | tuple[int], tour: Self):
+        self.__setitem__handle_node_list_value(self_node_indices, tour.nodes)
+
+    def slice_replace(self, self_node_index_slice: slice, node_replacements: list[Node]):
+        key = [s for s in range(
+            self_node_index_slice.indices(len(self))[0],
+            self_node_index_slice.indices(len(self))[1],
+            self_node_index_slice.indices(len(self))[2],
+        )]
+        self.__setitem__handle_node_list_value(key, node_replacements)
+
+    # def slice_replace_with_tour(self, self_node_index_slice: slice, tour: Self):
+    #     self.slice_replace(self_node_index_slice, tour.nodes)
+
     def __setitem__(self, key, value):
-        # convert value-type to list[Node]
-        if isinstance(value, Tour):
-            value = value.nodes
-        if is_collection_instance(value, tuple, Node):
-            value = [v for v in value]
-
-        # convert key-type to list[int]
-        if isinstance(key, Tour):
-            key = [self.nodes.index(n) for n in self if n in key]
-        if is_collection_instance(key, tuple, int):
-            key = [k for k in key]
-        if isinstance(key, slice):
-            key = [s for s in range(
-                key.indices(len(self))[0],
-                key.indices(len(self))[1],
-                key.indices(len(self))[2],
-            )]
-        if isinstance(key, Node):
-            key = [self.nodes.index(n) for n in self if n == key][0]
-        if is_collection_instance(key, tuple, Node) or is_collection_instance(key, list, Node):
-            key = [self.nodes.index(n) for n in self if n in key]
-
-        if is_collection_instance(key, list, int):
-            if is_collection_instance(value, list, Node):
-                self.__setitem__handle_node_list_value(key, value)
-                return
-            elif isinstance(value, Node):
-                self.__setitem__handle_node_list_value(key, [value for _ in range(len(key))])
-                return
-
-        # case key is int and value is singleton Node
-        if isinstance(key, int) and isinstance(value, Node):
-            self.nodes[key] = value
-            return
-
-        raise TypeError(f"{type(key)} or {type(value)} is not a valid operand for {self.__setitem__}.")
+        self.nodes[key] = value
 
     def __setitem__handle_node_list_value(self, key, value):
         diff = set([abs(k1 - k2) for (k1, k2) in zip(key[:-1], key[1:])])
         if len(set(diff)) != 1 and len(key) != 1:
-            raise IndexError(f"Elements of iterator index {key} need to be equidistant.")
+            raise IndexError(f"Elements of iterator index {key} need to be equidistant. (Tour: [{self.nodes}])")
         if len(set(diff)) == 1:
             increment = diff.pop()
         else:
@@ -213,7 +197,7 @@ class Tour(Iterable):
             raise ValueError(f'{nodes} is not a chain of subsequent nodes.')
         return slice(min(indices), max(indices) + 1)
 
-    def get_indices_of(self, nodes: 'Tour') -> list[int]:
+    def get_indices_of(self, nodes: Self) -> list[int]:
         depot = Node.create_depot()
         indices = [index for index, node in enumerate(self) if node in nodes and node != depot]
         if depot not in nodes:
