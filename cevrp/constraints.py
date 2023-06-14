@@ -50,17 +50,21 @@ def check_battery_capacity_for_tour(self: ConstraintValidationStrategy):
         in edges
     ]
 
+    if self.battery_threshold < 0.5 * self.vehicle.battery.capacity:
+        for edge in self.tour.get_edges()[:-1]:
+            self.vehicle = +self.vehicle
+            self.vehicle = self.vehicle - edge
+            if self.vehicle.current_battery_level < self.battery_threshold:
+                continue
+            self.vehicle = self.vehicle - edge
+            if self.vehicle.current_battery_level < 0:
+                return False
+
     return all(
             charge <= self.battery_threshold
             for charge
             in tour_battery_charges
     )
-
-    # ADD CONSTRAINT:
-        # CHECK IF TOUR'S SECTIONS OF CRITICAL LENGTH
-        # ARE SUBORDINATE TO BATTERY CAPACITY CONSTRAINT
-
-    # if any()
 
 
 class Constraints(Enum):

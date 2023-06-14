@@ -57,7 +57,7 @@ def generate_data_set(
 
 
 # def init(num_customers):
-num_customers = 50
+num_customers = 5
 num_vehicles = 5
 max_demand = 10
 max_distance = 400
@@ -79,7 +79,7 @@ data = generate_data_set(
     max_charging_rate,
 )
 clustered_tour_plans = {}
-data.cluster_nodes(27, 5)
+data.cluster_nodes(40, 2)
 visualizer = CEVRPVisualizer(data)
 visualizer.visualize_clusters()
 for cluster_key in data.node_clusters.keys():

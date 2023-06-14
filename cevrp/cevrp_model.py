@@ -174,25 +174,12 @@ class CEVRPVisualizer:
                 random.uniform(0, 1),
             )
 
-            annotated = False
             for node in tour:
                 node1 = model.get_node_by_id(node.node_id)
                 node2 = model.get_node_by_id(tour.get_next_node(node).node_id)
                 # plt.plot([node1.x, node2.x], [node1.y, node2.y], color=color)
                 plt.arrow(node1.x, node1.y, node2.x - node1.x, node2.y - node1.y, color=color,
                           length_includes_head=True, head_width=0.4, head_length=0.6)
-                if not annotated:
-                    reference_vehicle = +reference_vehicle
-                    costs = tour.get_costs_of_tour(reference_vehicle, model.battery_threshold)
-                    plt.text(node2.x + label_x_offset, node2.y + label_x_offset,
-                             f"{CostTypes.TOTAL.printable}: {round(costs[CostTypes.TOTAL], 1)}")
-                    plt.text(node2.x + label_x_offset, node2.y + 7 * label_x_offset,
-                             f"{CostTypes.DISTANCE.printable}: {round(costs[CostTypes.DISTANCE], 1)}")
-                    plt.text(node2.x + label_x_offset, node2.y + 12 * label_x_offset,
-                             f"{CostTypes.BATTERY_RECHARGING.printable}: {round(costs[CostTypes.BATTERY_RECHARGING], 1)}")
-                    plt.text(node2.x + label_x_offset, node2.y + 17 * label_x_offset,
-                             f"{CostTypes.DEMAND.printable}: {round(costs[CostTypes.DEMAND], 1)}")
-                    annotated = True
 
             # Connect the last node to the first node to complete the tour
             first_node = tour[0]
