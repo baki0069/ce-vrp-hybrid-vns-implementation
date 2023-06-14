@@ -38,7 +38,7 @@ def is_invalid(tour, vehicle, battery_threshold):
             ).is_valid() for constraint in Constraints)
 
 
-def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers, max_interchange_iterations):
+def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers):
     logging.getLogger().setLevel(logging.INFO)
 
     all_tour_plans = []
@@ -47,27 +47,51 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
     it = 0
     no_mutation = False
 
-    if outliers is None:
-        runner_clients = []
-    else:
-        runner_clients = outliers
+    num_vehicles = len(model.vehicles)
 
-    tours = [t for k, v in tourplan.items() if k != -1 for t in v.tours]
+    # runner clients represent client nodes which were detected as outliers
+    # via DBSCAN
+    if outliers is None:
+        runner_clients: list[Node] = []
+    else:
+        runner_clients: list[Node] = outliers
+
+    # normalize lists of tours in clustered tour-plans into flat list of all tours
+    # for all clusters which do not contain outliers <=> for all cluster_key != -1
+    tours = [tour for cluster_key, tour_plan in tourplan.items() if cluster_key != -1 for tour in tour_plan.tours]
+
+    # reference vehicle for tour cost computations
     vehicle = model.vehicles[0]
     battery_threshold = model.battery_threshold
     t_total = time.time()
+    has_completely_iterated = False
     while not no_mutation and it < 100:
+        CEVRPVisualizer(model).visualize_tour_plan(TourPlan(tours))
+
         it += 1
 
         logging.info(f"BEGIN ITERATION {it}")
         logging.info(f"BEGIN TWO OPT MOVE ({it})")
 
+        # Variable Neighborhood Search will repeatedly apply the same Neighborhood Operator
+        # as long as a local optimum has been found. In the case that no further local optimum
+        # has been found by applying an operator, the next operator is applied to the set of
+        # tours found so far. For each local optimum found, the neighborhood structure to be
+        # applied resets to the first neighborhood operator.
+        # As soon as for a defined number of successive iterations all neighborhood structures
+        # could not find a local optimum, the tour plan will be returned.
         local_optimum_found = False
 
-        all_tour_plans.append((TourPlan([t.get_manual_copy() for t in tours]), it))
+        if len(tours) != 0:
+            all_tour_plans.append((TourPlan([t.get_manual_copy() for t in tours]), it))
 
+        # Each neighborhood operator to be applied is applied multiple times to each tour
+        # or pair of tours. Only those tour changes are saved (here: the original tour*s
+        # overwritten), if they represent a better, i.e. more cost-efficient alternative,
+        # while respecting the capacitive constraints and those associated with the use
+        # of electric vehicles.
         for j in range(len(tours)):
-            tour2 = tours[j]
+            tour2 = tours[j].get_manual_copy()
             old_costs = get_total_costs2([tour2], vehicle, battery_threshold)
 
             tour2_candidate = shaker.TWO_OPT_MOVE(
@@ -88,35 +112,25 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
                 tours[j] = tour2_candidate
 
         if local_optimum_found:
-            local_optimum_found = False
+            continue
         else:
             logging.warning(f"NO LOCAL OPTIMUM VIA TWO OPT MOVE AT ({it})")
 
-        if len(runner_clients) != 0:
-            logging.info(f"BEGIN SEQUENTIAL INSERTION ({it})")
-
-            # SEQUENTIAL INSERTION INCLUDES CHECKS FOR TOUR VALIDATION
-            copied_runner_clients = [rc for rc in runner_clients]
-            runner_clients, tp = NeighborhoodOperators.SEQUENTIAL_INSERTION(
-                copied_runner_clients,
-                TourPlan(tours),
-                vehicle,
-                battery_threshold
-            )
-
-            tours = tp.tours
-            logging.info(f"END SEQUENTIAL INSERTION ({it})")
-
         logging.info(f"BEGIN CROSS EXCHANGE ({it})")
 
-        for n in range(max_interchange_iterations):
-            for i in range(len(tours)):
-                for j in range(len(tours)):
+        if it >= 5 and len(runner_clients) != 0:
+            for runner in runner_clients:
+                tours.append(Tour([Node.create_depot(), runner, Node.create_depot()]))
+                runner_clients.remove(runner)
+
+        for i in range(len(tours)):
+            for j in range(len(tours)):
+                for n in range(20):
                     if i == j:
                         continue
 
-                    tour1 = tours[i]
-                    tour2 = tours[j]
+                    tour1 = tours[i].get_manual_copy()
+                    tour2 = tours[j].get_manual_copy()
 
                     if len(tour1) == 3 and len(tour2) == 3:
                         continue
@@ -151,7 +165,15 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
 
                     tour1_candidate, tour2_candidate = shaker.CROSS_EXCHANGE(data)
 
-                    if is_invalid(tour1_candidate, vehicle, battery_threshold) or is_invalid(tour2_candidate, vehicle, battery_threshold):
+                    if is_invalid(
+                            tour1_candidate,
+                            vehicle,
+                            battery_threshold
+                    ) or is_invalid(
+                        tour2_candidate,
+                        vehicle,
+                        battery_threshold
+                    ):
                         continue
 
                     new_costs = get_total_costs(tour1_candidate, tour2_candidate, vehicle, battery_threshold)
@@ -168,14 +190,14 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
 
         logging.info(f"BEGIN TWO LAMBDA INTERCHANGE ({it})")
 
-        for n in range(max_interchange_iterations):
-            for i in range(len(tours)):
-                for j in range(len(tours)):
+        for i in range(len(tours)):
+            for j in range(len(tours)):
+                for n in range(20):
                     if i == j:
                         continue
 
-                    tour1 = tours[i]
-                    tour2 = tours[j]
+                    tour1 = tours[i].get_manual_copy()
+                    tour2 = tours[j].get_manual_copy()
 
                     edges = [(e1, e2) for e1 in tour1.get_edges() for e2 in tour2.get_edges()]
 
@@ -198,7 +220,15 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
                     )
                     tour1_candidate, tour2_candidate = shaker.TWO_LAMBDA_INTERCHANGE(data)
 
-                    if is_invalid(tour1_candidate, vehicle, battery_threshold) or is_invalid(tour2_candidate, vehicle, battery_threshold):
+                    if is_invalid(
+                            tour1_candidate,
+                            vehicle,
+                            battery_threshold
+                    ) or is_invalid(
+                        tour2_candidate,
+                        vehicle,
+                        battery_threshold
+                    ):
                         continue
 
                     new_costs = get_total_costs(tour1_candidate, tour2_candidate, vehicle, battery_threshold)
@@ -214,14 +244,57 @@ def optimize_tours(tourplan: dict[[any], TourPlan], model: CEVRPModel, outliers,
         else:
             logging.warning(f"NO LOCAL OPTIMUM VIA TWO LAMBDA INTERCHANGE AT ({it})")
 
+        logging.info(f"BEGIN SEQUENTIAL INSERTION ({it})")
+
+        # SEQUENTIAL INSERTION INCLUDES CHECKS FOR TOUR VALIDATION
+        # remember old tours constellation for two iterations
+
+        should_memorize_tour = False
+        if not has_completely_iterated:
+            memorized_tours: None | list[Tour] = None
+        if not has_completely_iterated or memorize_tour_at_it <= it:
+            should_memorize_tour = True
+
+        # re-evaluate tour-costs
+        if should_memorize_tour:
+            # 1. INITIALIZE TOUR OR ENFORCE CLIENT VISITATION COMPLETENESS
+            if memorized_tours is None or sum(len(t) for t in memorized_tours) < sum(len(t) for t in tours):
+                memorized_tours = [t.get_manual_copy() for t in tours]
+            else:
+                old_costs = get_total_costs2(memorized_tours, vehicle, battery_threshold)
+                new_costs = get_total_costs2(tours, vehicle, battery_threshold)
+                if new_costs < old_costs:
+                    # MEMORIZE CURRENT TOUR WHEN COSTS ARE REDUCED
+                    memorized_tours = [t.get_manual_copy() for t in tours]
+                else:
+                    tours = memorized_tours
+
+            should_memorize_tour = False
+            memorize_tour_at_it = it + 5
+
+        runner_clients, tp = NeighborhoodOperators.SEQUENTIAL_INSERTION(
+            model.nodes,
+            runner_clients,
+            TourPlan(tours),
+            vehicle,
+            battery_threshold
+        )
+
+        tours = tp.tours
+        logging.info(f"END SEQUENTIAL INSERTION ({it})")
+
         logging.critical(f"END OF LOOP {it} -> {round(time.time() - t_total, 2)} seconds")
 
+        has_completely_iterated = True
+
         previous_solutions[it] = round(get_total_costs2(tours, vehicle, battery_threshold), 2)
-        if it >= 5 and len(set([v for k, v in previous_solutions.items() if k > it-3])) == 1:
+        if it >= 10 and len(set([v for k, v in previous_solutions.items() if k > it-10])) == 1:
             no_mutation = True
 
     CEVRPVisualizer(model).visualize_tour_plan(TourPlan(tours))
     show_costs_progression(all_tour_plans, vehicle, battery_threshold, model)
+    for tour in tours:
+        print(tour)
     print("END")
 
 

@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from enum import Enum
 from typing import Callable
 import time
@@ -5,6 +6,7 @@ import random
 
 from cevrp.constraints import Constraints, ConstraintValidationStrategy
 from cevrp.cost_types import CostTypes
+from cevrp.node import Node
 from cevrp.tour import Tour
 from cevrp.tour_plan import TourPlan
 from cevrp.vehicle import Vehicle
@@ -145,38 +147,118 @@ class NeighborhoodOperatorsImpl:
         return tour_1_section, tour_2_section
 
     @staticmethod
-    def sequential_insertion(runner_client_nodes: list[Tour], tours: TourPlan | list[Tour], vehicle, battery_threshold):
+    # RETURNS UN-PROCESSED OUTLIERS (list may be empty) AND MODIFIED TOURS
+    def sequential_insertion(
+            clients: list[Node],
+            outliers: list[Node],
+            tours: TourPlan | list[Tour],
+            vehicle,
+            battery_threshold
+    ):
         tours_copied = tours.get_manual_copy()
 
-        for tour in tours_copied:
-            if len(runner_client_nodes) == 0:
-                return runner_client_nodes, tours_copied
-            runner_to_node_tours: list[Tour] = []
+        # ASSUME CLIENTS IS SUBSET OF OUTLIERS
 
-            for node in tour[1:-1]:
-                runner_to_node_tours = [
-                    Tour([runner, node])
-                    for runner
-                    in runner_client_nodes
+        distances_outlier_to_depot: dict[[Node], float] = {}
+        distances_non_outlier_to_depot: dict[[Node], float] = {}
+        depot = Node.create_depot()
+
+        # Calculate all distances to depot for every node and sort them in descending order.
+        # Nodes are to be preferred which resemble outliers by putting them to the front of the distances-list.
+        for outlier in outliers:
+            distances_outlier_to_depot[outlier] = depot - outlier
+        distances_outlier_to_depot_descending = OrderedDict(
+            sorted(
+                distances_outlier_to_depot.items(),
+                key=lambda kv: kv[1],
+                reverse=True
+            ))
+
+        for client in [c for c in clients if c != depot and c not in outliers]:
+            distances_non_outlier_to_depot[client] = depot - client
+        distances_non_outlier_to_depot_descending = OrderedDict(
+            sorted(
+                distances_non_outlier_to_depot.items(),
+                key=lambda kv: kv[1],
+                reverse=True
+            ))
+
+        distances_all_to_depot = distances_outlier_to_depot_descending | distances_non_outlier_to_depot_descending
+
+        # Iterate over all clients, beginning from the furthest one away from the depot and
+        # allocate it to any other tour.
+        # Note that when allocating a client which is not an outlier to another tour,
+        # that changes to the tour containing the client must be considered as well!
+        for client in distances_all_to_depot.keys():
+            client_allocated = False
+
+            client_tour = None
+            if client not in outliers:
+                client_tour = [t for t in tours_copied if client in t][0]
+
+            for tour in tours_copied:
+                # As soon as a client had been allocated, stop the tour iteration
+                # and process the next client.
+                if client_allocated:
+                    break
+
+                # The current tour MUST NOT already contain client.
+                if client in tour:
+                    continue
+
+                client_to_node_tours = [
+                    Tour([client, tour_node])
+                    for tour_node
+                    in tour[1:-1]
                 ]
-            runner_to_node_tours.sort(key=lambda x: x.get_costs_of_tour(vehicle, battery_threshold)[CostTypes.TOTAL])
 
-            for runner_to_node in runner_to_node_tours:
+                # Sorting by partial costs so that more efficient
+                # routes will be preferred by getting processed sooner.
+                client_to_node_tours.sort(
+                    key=lambda x: x.get_costs_of_tour(vehicle, battery_threshold)[CostTypes.TOTAL])
 
-                copied = tour.get_manual_copy()
-                copied.nodes.insert(copied.nodes.index(runner_to_node[1]), runner_to_node[0])
+                for client_to_node in client_to_node_tours:
 
-                if all(ConstraintValidationStrategy(
-                    constraint.value,
-                    copied,
-                    vehicle,
-                    battery_threshold
-                ).is_valid() for constraint in Constraints):
-                    tours_copied[tour] = copied
-                    tour = copied
-                    runner_client_nodes.remove(runner_to_node[0])
+                    copied = tour.get_manual_copy()
+                    copied.nodes.insert(copied.nodes.index(client_to_node[1]), client_to_node[0])
 
-        return runner_client_nodes, tours_copied
+                    # If current client is not an outlier (thus being part of a tour) then
+                    # remove it from a tour's copy. If the tour is invalid, skip the current iteration.
+                    client_tour_copied = None
+                    if client_tour is not None:
+                        client_tour_copied = client_tour.get_manual_copy()
+                        client_tour_copied.remove(client_to_node[0])
+
+                        if not all(ConstraintValidationStrategy(
+                                constraint.value,
+                                client_tour_copied,
+                                vehicle,
+                                battery_threshold
+                        ).is_valid() for constraint in Constraints):
+                            continue
+
+                    # Apply all hypothetical changes to the actual tours.
+                    if all(ConstraintValidationStrategy(
+                            constraint.value,
+                            copied,
+                            vehicle,
+                            battery_threshold
+                    ).is_valid() for constraint in Constraints):
+                        client_allocated = True
+                        tours_copied[tour] = copied
+
+                        if client_tour_copied is not None:
+                            tours_copied[client_tour] = client_tour_copied
+                            # If tour is empty (depot - depot) then delete
+                            # from tour-collection.
+                            if len(tours_copied[client_tour_copied]) <= 2:
+                                tours_copied.tours.remove(client_tour_copied)
+
+                        if client_to_node[0] in outliers:
+                            outliers.remove(client_to_node[0])
+                        break
+
+        return outliers, tours_copied
 
     @classmethod
     def get_random_tour_section(cls, tour, subtour_length):

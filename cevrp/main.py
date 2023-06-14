@@ -56,16 +56,16 @@ def generate_data_set(
     return CEVRPModel(nodes, vehicles)
 
 
-# Example usage
-num_customers = 100
-num_vehicles = 10
+# def init(num_customers):
+num_customers = 50
+num_vehicles = 5
 max_demand = 10
-max_distance = 300
+max_distance = 400
 max_service_time = 10
-max_capacity = 100
-max_battery_capacity = 3000
+max_capacity = 250
+max_battery_capacity = 800
 max_battery_consumption = 10
-max_charging_rate = 10
+max_charging_rate = 2
 
 data = generate_data_set(
     num_customers,
@@ -87,26 +87,19 @@ for cluster_key in data.node_clusters.keys():
         continue
     clustered_tour_plans[cluster_key] = data.generate_cws_solution(data.node_clusters[cluster_key])
 
-
-#
-# edges_per_tour = []
-# for _, tour_plan in clustered_tour_plans.items():
-#     visualizer.visualize_tour_plan(tour_plan)
-#     edges_per_tour.append(tour_plan.get_edges())
-#
-
-
-for i in range(10, 100, 10):
-    cProfile.run(f"""
 cevrp_optimizer.optimize_tours(
     clustered_tour_plans,
     data,
-    data.node_clusters[-1] if -1 in data.node_clusters.keys() else None,
-    {i}
-)""", f'restats_{i}')
+    data.node_clusters[-1] if -1 in data.node_clusters.keys() else None
+)
 
-    p = pstats.Stats(f'restats_{i}')
-    p.strip_dirs().sort_stats(pstats.SortKey.TIME).print_stats()
+
+# for i in range(10, 20, 2):
+    # cProfile.run(f"""
+    # init(i)
+# """, f'performance_analysis_{i}_customers')
+    # p = pstats.Stats(f'performance_analysis_{i}_customers')
+    # p.strip_dirs().sort_stats(pstats.SortKey.TIME).print_stats()
 
 # def test_costs_of_tour():
 #     nodes = Node.list_create(
@@ -122,3 +115,5 @@ cevrp_optimizer.optimize_tours(
 
 
 # cProfile.run("""test_costs_of_tour()""")
+
+

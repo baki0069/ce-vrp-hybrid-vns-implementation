@@ -2,6 +2,7 @@ import types
 from enum import Enum
 from typing import Callable, Any
 
+from cevrp.node import Node
 from cevrp.tour import Tour
 from cevrp.vehicle import Vehicle
 
@@ -23,8 +24,12 @@ class ConstraintValidationStrategy:
         pass
 
 
+def check_depot_count(self: ConstraintValidationStrategy):
+    return self.tour.nodes.count(Node.create_depot()) == 2
+
+
 def check_tour_capacity(self: ConstraintValidationStrategy):
-    return not sum(node.demand for node in self.tour) > self.vehicle.commodity_capacity
+    return sum(node.demand for node in self.tour) <= self.vehicle.commodity_capacity
 
 
 def check_total_tour_distance(self: ConstraintValidationStrategy):
@@ -34,7 +39,7 @@ def check_total_tour_distance(self: ConstraintValidationStrategy):
         for e
         in edges
     )
-    return not tour_distance > self.vehicle.distance_threshold
+    return tour_distance <= self.vehicle.distance_threshold
 
 
 def check_battery_capacity_for_tour(self: ConstraintValidationStrategy):
@@ -59,9 +64,10 @@ def check_battery_capacity_for_tour(self: ConstraintValidationStrategy):
 
 
 class Constraints(Enum):
-    TOUR_CAPACITY = 1, check_tour_capacity
-    TOTAL_DISTANCE = 2, check_total_tour_distance
-    BATTERY_CAPACITY = 3, check_battery_capacity_for_tour
+    DEPOT_COUNT = 1, check_depot_count
+    TOUR_CAPACITY = 2, check_tour_capacity
+    TOTAL_DISTANCE = 3, check_total_tour_distance
+    BATTERY_CAPACITY = 4, check_battery_capacity_for_tour
 
     def __init__(self, function: Callable[[Any], bool], num: int):
         self.executable = function

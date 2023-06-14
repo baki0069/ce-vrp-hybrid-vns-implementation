@@ -158,6 +158,8 @@ class CEVRPVisualizer:
     def visualize_tour_plan(self, tour_plan: TourPlan):
         model = self.model
 
+        label_x_offset = 0.01 * abs(min(n.x for n in model.nodes) - max(n.x for n in model.nodes))
+
         # Plot the nodes
         for node in model.nodes:
             plt.scatter(node.x, node.y, color='black')
@@ -182,13 +184,13 @@ class CEVRPVisualizer:
                 if not annotated:
                     reference_vehicle = +reference_vehicle
                     costs = tour.get_costs_of_tour(reference_vehicle, model.battery_threshold)
-                    plt.text(node2.x + 1.5, node2.y + 1.5,
+                    plt.text(node2.x + label_x_offset, node2.y + label_x_offset,
                              f"{CostTypes.TOTAL.printable}: {round(costs[CostTypes.TOTAL], 1)}")
-                    plt.text(node2.x + 1.5, node2.y + 11.5,
+                    plt.text(node2.x + label_x_offset, node2.y + 7 * label_x_offset,
                              f"{CostTypes.DISTANCE.printable}: {round(costs[CostTypes.DISTANCE], 1)}")
-                    plt.text(node2.x + 1.5, node2.y + 21.5,
+                    plt.text(node2.x + label_x_offset, node2.y + 12 * label_x_offset,
                              f"{CostTypes.BATTERY_RECHARGING.printable}: {round(costs[CostTypes.BATTERY_RECHARGING], 1)}")
-                    plt.text(node2.x + 1.5, node2.y + 31.5,
+                    plt.text(node2.x + label_x_offset, node2.y + 17 * label_x_offset,
                              f"{CostTypes.DEMAND.printable}: {round(costs[CostTypes.DEMAND], 1)}")
                     annotated = True
 

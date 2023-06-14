@@ -43,6 +43,16 @@ class Node:
     def __hash__(self):
         return self.node_id
 
+    def get_copy(self):
+        return Node(
+            self.node_id,
+            self.demand,
+            self.service_time,
+            self.x,
+            self.y,
+            self.distance_calculator
+        )
+
     @staticmethod
     def calculate_distance(node1, node2):
         distance = math.sqrt(abs(node2.x - node1.x) ** 2 + abs(node2.y - node1.y) ** 2)

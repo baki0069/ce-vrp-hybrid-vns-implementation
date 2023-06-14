@@ -174,7 +174,7 @@ class Tour(Iterable):
         vehicle = +vehicle
         total_battery_recharge_cost = 0
 
-        edges = self.get_edges()
+        edges = self.get_edges()[:-1]
         for edge in edges:
             vehicle = vehicle - edge  # v - tuple[node,node] -> v (dim. battery cap.)
             if vehicle.current_battery_level < battery_threshold:
@@ -183,12 +183,6 @@ class Tour(Iterable):
                 total_battery_recharge_cost += battery_recharge_amount / vehicle.battery.charging_rate
                 vehicle = +vehicle  # unary recharge operator
         return total_battery_recharge_cost
-
-    def get_subtour_distance(self, node: Node, symmetric_length: int = 1):
-        index = self.nodes.index(node)
-        # slice operator <=> right-open-interval (e.g. [2; 5) == {2, 3, 4})
-        subtour = Tour(self[index - symmetric_length:index + symmetric_length + 1])
-        return subtour.get_total_distance()
 
     # return indices of chain of subsequent nodes
     def get_index_slice_of_node_chain(self, nodes: 'Tour') -> slice:
